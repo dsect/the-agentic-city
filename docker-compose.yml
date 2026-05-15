@@ -1,0 +1,82 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    gpus: all
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  ollama-model-init:
+    image: curlimages/curl:8.11.1
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: qwen3:8b
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        echo "Pulling $${OLLAMA_MODEL} from Ollama..."
+        curl --fail --show-error --silent "$${OLLAMA_BASE_URL}/api/pull" \
+          -H "Content-Type: application/json" \
+          -d "{\"model\":\"$${OLLAMA_MODEL}\",\"stream\":false}"
+        echo
+        echo "Verifying $${OLLAMA_MODEL} is available..."
+        curl --fail --show-error --silent "$${OLLAMA_BASE_URL}/api/tags" | grep -q "\"name\":\"$${OLLAMA_MODEL}\""
+        echo "Model $${OLLAMA_MODEL} is ready."
+    restart: "no"
+
+  api:
+    build:
+      context: ./api
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-model-init:
+        condition: service_completed_successfully
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: qwen3:8b
+      OLLAMA_THINK: "false"
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: ./web
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+
+  dozzle:
+    image: amir20/dozzle:latest
+    ports:
+      - "9999:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "/dozzle", "healthcheck"]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  ollama-data:
