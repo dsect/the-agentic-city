@@ -8,3 +8,19 @@ updates:
       github-actions:
         patterns:
           - "*"
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "monthly"
+    groups:
+      web:
+        patterns:
+          - "*"
+  - package-ecosystem: "pip"
+    directory: "/api"
+    schedule:
+      interval: "monthly"
+    groups:
+      api:
+        patterns:
+          - "*"
