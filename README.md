@@ -7,6 +7,7 @@ This repo currently scaffolds a local LLM web app:
 - React + Vite + TypeScript frontend
 - Python FastAPI backend
 - Ollama running locally in Docker Compose
+- A fake `get_weather` tool wired into the chat loop
 - Qwen3 model pulled automatically at startup
 - Dozzle for browsing container logs
 
@@ -40,6 +41,16 @@ Open:
 Ollama to become healthy, calls Ollama's `/api/pull` endpoint for `qwen3:8b`, verifies the
 model appears in `/api/tags`, then exits successfully. The FastAPI backend starts after that
 and sends chat requests to Ollama's `/api/chat` endpoint.
+
+The `/chat` endpoint also exposes a local fake `get_weather` function to the model as a tool.
+The fake weather data currently supports Seattle, New York City, and Los Angeles. When Ollama
+returns a `get_weather` tool call with one or more cities, the API runs the local function,
+returns forecasts for supported cities, reports unavailable cities, appends the tool result to
+the conversation, and asks Ollama for the final answer. The response includes a `trace` array
+with the Ollama requests and responses plus the tool request and response payloads so the
+frontend can show the full tool-call flow. The request can also include prior `user` and
+`assistant` turns as `history`, and the response includes `used_tools`, `tool_names`, and
+`status` fields for lightweight UI indicators.
 
 ## Local Development
 
